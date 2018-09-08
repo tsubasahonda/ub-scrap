@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
 require('dotenv').config();
 
 class RankingScrapper {
@@ -16,7 +17,7 @@ class RankingScrapper {
       await page.goto(this.rankingURL);
 
       let tableRanking = await page.$$('.table-ranking > tbody > tr');
-      let tableRankingArray = [];
+      let tableRankingObject = {};
       for (let i = 1; i <= tableRanking.length; i++) {
         let link = await page.$eval(`.table-ranking > tbody > tr:nth-child(${i}) > .col-name > a`, el => el.href);
         let name = await page.$eval(`.table-ranking > tbody > tr:nth-child(${i}) > .col-name > a`, el => el.innerText);
@@ -27,12 +28,12 @@ class RankingScrapper {
         } catch(e) {
           office = ''
         }
-        tableRankingArray.push({link, name, icon, office});
+        tableRankingObject[link.split('user/')[1]] = ({link, name, icon, office});
       }
 
       await browser.close();
 
-      return tableRankingArray;
+      return tableRankingObject;
     } catch (e) {
       console.error(e);
       await browser.close();
@@ -48,5 +49,5 @@ const Ranking = new RankingScrapper({
 
 Ranking.getRanking().then((link) => {
   console.log(link);
-  console.log(link.length);
+  fs.writeFile('ranking.json', JSON.stringify(link, null, ' '));
 });
