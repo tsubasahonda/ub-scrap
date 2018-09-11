@@ -9,7 +9,9 @@ class RankingScrapper {
 
   async getRanking() {
     const browser = await puppeteer.launch({
-      ignoreHTTPSErrors: true
+      ignoreHTTPSErrors: true,
+      headless: true,
+      dumpio: true
     });
     const page = await browser.newPage();
 

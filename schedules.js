@@ -2,16 +2,22 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 require('dotenv').config();
 
-class RankingScrapper {
+class SchedulesScrapper {
   constructor(args) {
     this.schedulesURL = args.schedulesURL;
   }
 
-  async getRanking() {
+  async getSchedules() {
     const browser = await puppeteer.launch({
-      ignoreHTTPSErrors: true
+      ignoreHTTPSErrors: true,
+      headless: true,
+      dumpio: true
     });
     const page = await browser.newPage();
+    page.on('console', msg => {
+      for (let i = 0; i < msg.args.length; ++i)
+        console.log(`${i}: ${msg.args[i]}`);
+    });
 
     try {
       await page.goto(this.schedulesURL);
@@ -55,6 +61,7 @@ class RankingScrapper {
               minute[minutes[l].innerText] = {programInfo};
             }
             dailyIndex.push({i, hour, minute});
+            console.log('こんな感じで出て来るけどええか');
           }
         }
         return dailyIndex;
@@ -71,12 +78,12 @@ class RankingScrapper {
   }
 }
 
-const Ranking = new RankingScrapper({
+const Schedules = new SchedulesScrapper({
   pageID: '1',
   schedulesURL: process.env.schedulesURL
 });
 
-Ranking.getRanking().then((data) => {
+Schedules.getSchedules().then((data) => {
   //console.log(data);
   console.log(data);
   //console.log(data.dailyIndex[7].minute['0分'].programInfo);
