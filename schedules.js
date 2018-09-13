@@ -14,62 +14,77 @@ class SchedulesScrapper {
       dumpio: true
     });
     const page = await browser.newPage();
-    page.on('console', msg => {
+    /*page.on('console', msg => {
       for (let i = 0; i < msg.args.length; ++i)
         console.log(`${i}: ${msg.args[i]}`);
-    });
+    });*/
 
     try {
       await page.goto(this.schedulesURL);
 
-      let schedules = await page.evaluate(() => {
-        let dayIndex = {};
-        let dailyIndex = [];
+      let dailyIndex = {};
+      let list = await page.$$('.box-live-schedules > .table > tbody > tr');
+      let day, hour, minutes, programs;
+
+      let dayIndex = await page.evaluate(() => {
         let list = document.querySelectorAll('.table > tbody > tr');
-        let day, hour, minutes, programs;
-        for(let i=0; i < list.length; i++) {
-          //let hour, minutes, programs;
+        let di = [];
+        for(let i = 0; i < list.length; i++) {
           if(list[i].classList.contains('text-white')) {
-            day = list[i].querySelector('td:nth-child(1)').innerText;
-          } else {
-            hour = list[i].querySelector('td:nth-child(1)').innerText;
-            minutes = list[i].querySelectorAll('td:nth-child(2) > div > div:nth-child(1)');
-            programs = list[i].querySelectorAll('td:nth-child(2) > div > div:nth-child(2)');
-            let minute = {};
-            for(let l=0; l < minutes.length; l++) {
-              let program = programs[l].querySelectorAll(':scope > span > a');
-              let user = programs[l].querySelectorAll(':scope > span');
-              let programInfo = {}; 
-              for(let k=0; k < program.length; k++) {
-                try {
-                  programInfo[k] = {
-                    name: user[k].querySelector(':scope > span > a').innerText,
-                    program: program[k].innerText,
-                    programLink: program[k].getAttribute('href'),
-                    day: day,
-                    hour: hour,
-                    minutes: minutes[l].innerText
-                  };
-                } catch(e) {
-                  programInfo[k] = {
-                    name: '',
-                    program: program[k].innerText,
-                    programLink: program[k].getAttribute('href')
-                  };
-                }
-              }
-              minute[minutes[l].innerText] = {programInfo};
-            }
-            dailyIndex.push({i, hour, minute});
-            console.log('こんな感じで出て来るけどええか');
+            di.push(i);
           }
         }
-        return dailyIndex;
-      })
+        return di;
+      });
+
+      for(let i=0; i < list.length; i++) {
+        if(dayIndex.includes(i)) {
+          day = await list[i].$eval('td:nth-child(1)', el => el.innerText);
+        }
+        hour = await list[i].$eval('td:nth-child(1)', el => el.innerText);
+        minutes = await list[i].$$('td:nth-child(2) > div > div:nth-child(1)');
+        programs = await list[i].$$('td:nth-child(2) > div > div:nth-child(2)');
+        let minute = {};
+        for(let l=0; l < minutes.length; l++) {
+          let program = await programs[l].$$(':scope > span > a');
+          let user = await programs[l].$$(':scope > span');
+          let programInfo = {};
+          for(let k=0; k < program.length; k++) {
+            try {
+              programInfo[k] = {
+                name: await user[k].$eval(':scope > span > a', el => el.innerText),
+                program: await page.evaluate(el => el.innerText, program[k]),
+                programLink: await page.evaluate(el => el.href, program[k]),
+                programRedirectedLink: '',
+                day: day,
+                hour: hour,
+                minutes: await page.evaluate(el => el.innerText, minutes[l])
+              };
+            } catch(e) {
+              programInfo[k] = {
+                name: '',
+                program: await page.evaluate(el => el.innerText, program[k]),
+                programLink: await page.evaluate(el => el.href, program[k]),
+                programRedirectedLink: '',
+                day: day,
+                hour: hour,
+                minutes: await page.evaluate(el => el.innerText, minutes[l])
+              };
+            }
+            const redirect = await browser.newPage();
+            await redirect.goto(programInfo[k].programLink);
+            //let res = await page.goto(programInfo[k].programLink);
+            programInfo[k].programRedirectedLink = redirect.url();
+            await redirect.close();
+          }
+          minute[await page.evaluate(el => el.innerText, minutes[l])] = programInfo;
+          dailyIndex[i] = minute;
+        }
+      }
 
       await browser.close();
 
-      return schedules;
+      return dailyIndex;
     } catch (e) {
       console.error(e);
       await browser.close();
@@ -84,8 +99,7 @@ const Schedules = new SchedulesScrapper({
 });
 
 Schedules.getSchedules().then((data) => {
+  console.log(data[9]);
   //console.log(data);
-  console.log(data);
-  //console.log(data.dailyIndex[7].minute['0分'].programInfo);
   fs.writeFile('schedules.json', JSON.stringify(data, null, ' '));
 });

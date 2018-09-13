@@ -11,7 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "dotenv": "^6.0.0",
-    "puppeteer": "^1.8.0"
+    "puppeteer": "^1.8.0",
+    "request": "^2.88.0"
   },
   "devDependencies": {
     "mysql": "^2.15.0"
